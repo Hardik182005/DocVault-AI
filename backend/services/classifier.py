@@ -6,8 +6,9 @@ Output: structured JSON classification
 import os
 import json
 from groq import Groq
+from utils.env import clean_env
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key=clean_env("GROQ_API_KEY"))
 
 CLASSIFICATION_PROMPT = """You are a document classifier. Analyze the provided document text and return ONLY a valid JSON object with NO preamble, NO markdown, NO backticks.
 

@@ -40,9 +40,10 @@ async def speak_text(request: Request, body: SpeakRequest):
 async def transcribe_audio(request: Request, file: UploadFile = File(...)):
     """Transcribe an audio file using OpenAI Whisper (server-side STT fallback)."""
     import os
+    from utils.env import clean_env
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = OpenAI(api_key=clean_env("OPENAI_API_KEY"))
 
         audio_bytes = await file.read()
         audio_file = io.BytesIO(audio_bytes)

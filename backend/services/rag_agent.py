@@ -5,6 +5,7 @@ Retrieves chunks from ChromaDB and synthesizes cited answers.
 import os
 import re
 from langchain_groq import ChatGroq
+from utils.env import clean_env
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -58,7 +59,7 @@ def retrieve_chunks(query: str) -> str:
 def run_rag_agent(message: str, conversation_history: list) -> dict:
     llm = ChatGroq(
         model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key=clean_env("GROQ_API_KEY"),
         temperature=0,
     )
     tools = [retrieve_chunks]

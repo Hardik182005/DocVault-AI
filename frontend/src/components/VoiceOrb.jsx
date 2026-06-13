@@ -49,20 +49,23 @@ export default function VoiceOrb() {
   const speak = async (text, idx) => {
     if (speakingIdx === idx) { stopAudio(); return; }
     stopAudio();
+    setSpeakingIdx(idx); // Set immediately so the button shows "loading" state
     try {
       const url = await api.speak(text);
-      const audio = new Audio(url);
+      if (audioRef.current?.src && audioRef.current.src !== url) return; // cancelled
+      const audio = new Audio();
+      audio.src = url;
       audioRef.current = audio;
-      setSpeakingIdx(idx);
       const cleanup = () => {
-        URL.revokeObjectURL(url);
+        try { URL.revokeObjectURL(url); } catch { /* noop */ }
         if (audioRef.current === audio) audioRef.current = null;
         setSpeakingIdx(s => (s === idx ? null : s));
       };
       audio.onended = cleanup;
-      audio.onerror = cleanup;
-      await audio.play().catch(() => cleanup());
-    } catch {
+      audio.onerror = () => { console.warn("[BFAI TTS] Audio error"); cleanup(); };
+      await audio.play();
+    } catch (e) {
+      console.warn("[BFAI TTS] speak() error:", e);
       setSpeakingIdx(s => (s === idx ? null : s));
     }
   };

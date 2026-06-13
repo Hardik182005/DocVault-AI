@@ -11,7 +11,7 @@ from pathlib import Path
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", "./storage")
 CHROMA_PATH = os.path.join(STORAGE_DIR, "chroma_db")
-SAMPLE_DOCS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "sample_documents")
+SAMPLE_DOCS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sample_documents")
 
 _model = None
 _chroma_client = None

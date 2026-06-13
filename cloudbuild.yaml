@@ -8,7 +8,9 @@ steps:
       - asia-south1-docker.pkg.dev/$PROJECT_ID/bfai-hardik/backend:$COMMIT_SHA
       - -t
       - asia-south1-docker.pkg.dev/$PROJECT_ID/bfai-hardik/backend:latest
-      - ./backend
+      - -f
+      - Dockerfile
+      - .
 
   # ── Step 2: Push to Artifact Registry ────────────────────────────────────────
   - name: 'gcr.io/cloud-builders/docker'

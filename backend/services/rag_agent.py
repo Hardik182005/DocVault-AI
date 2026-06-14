@@ -167,9 +167,12 @@ def run_rag_agent(message: str, conversation_history: list) -> dict:
             ],
         }
 
-    # Parse citations from the answer text: look for [filename, p.N] patterns
-    citation_pattern = r'\[([^\]]+),\s*p\.(\d+)\]'
-    matches = re.findall(citation_pattern, answer)
+    # Parse citations from the answer text. Accept any of:
+    #   [file, p.N]  [file, p N]  [file, pg.N]  [file, page N]  (case-insensitive)
+    # Different providers format the page token differently (Groq -> "p.N",
+    # Gemini/OpenAI often echo the "Page N" source label), so be liberal.
+    citation_pattern = r'\[([^\],]+),\s*(?:p\.?|pg\.?|page)\s*(\d+)\]'
+    matches = re.findall(citation_pattern, answer, re.IGNORECASE)
 
     citations = []
     collection = get_collection()

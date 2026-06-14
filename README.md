@@ -1,4 +1,4 @@
-# BFAI — Document Intelligence Platform
+# DocVault AI — Document Intelligence Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green?logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Deployed](https://img.shields.io/badge/Live-Firebase%20Hosting-red?logo=firebase)](https://docvault-ai-app.web.app)
 
-> **Documents speak. BFAI translates.**
+> **Documents speak. DocVault translates.**
 
 A Document Intelligence + Agentic RAG platform. Upload messy real-world documents (scanned PDFs, handwritten pages, image-heavy reports, tables) — the system extracts content with OCR, classifies each document with an LLM, and a chatbot answers questions with inline citations showing the exact source page as a thumbnail.
 
@@ -100,8 +100,8 @@ A Document Intelligence + Agentic RAG platform. Upload messy real-world document
 
 ### Local with Docker
 ```bash
-git clone https://github.com/Hardik182005/BFAI-TASK.git
-cd BFAI-TASK
+git clone https://github.com/Hardik182005/DocVault-AI.git
+cd DocVault-AI
 
 # Create backend/.env from the example
 cp backend/.env.example backend/.env
@@ -152,8 +152,8 @@ This creates 5 sample documents in `sample_documents/` which are auto-ingested o
 ## Repository Structure
 
 ```
-BFAI-TASK/
-├── frontend/          # React 19 + Vite + Tailwind (BFAI design system)
+DocVault-AI/
+├── frontend/          # React 19 + Vite + Tailwind (DocVault design system)
 │   └── src/
 │       ├── pages/     # Chat, Upload, Documents, Landing, Settings
 │       └── components/# SideNavBar, TopNavBar, VoiceOrb, CitationCard

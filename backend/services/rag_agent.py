@@ -10,6 +10,10 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from services.embedder import get_collection, get_model
+from services.llm import (
+    complete, configured_providers, is_rate_limit_error,
+    LLMUnavailable, GROQ_MODEL,
+)
 
 SYSTEM_PROMPT = """You are DocVault AI, a friendly document intelligence assistant built to help users query and understand their uploaded documents.
 
@@ -27,9 +31,8 @@ DOCUMENT QUESTIONS (always use the tool):
 5. Be concise — lead with the answer, then cite the source."""
 
 
-@tool
-def retrieve_chunks(query: str) -> str:
-    """Retrieve the most relevant document chunks for the given query. Always call this first."""
+def _retrieve(query: str) -> str:
+    """Embed the query and return the most relevant document chunks as text."""
     collection = get_collection()
     model = get_model()
     embedding = model.encode(query).tolist()
@@ -56,9 +59,16 @@ def retrieve_chunks(query: str) -> str:
     return "\n\n---\n\n".join(formatted) if formatted else "NO_RESULTS"
 
 
-def run_rag_agent(message: str, conversation_history: list) -> dict:
+@tool
+def retrieve_chunks(query: str) -> str:
+    """Retrieve the most relevant document chunks for the given query. Always call this first."""
+    return _retrieve(query)
+
+
+def _run_groq_agent(message: str, lc_history: list) -> str:
+    """Primary path: Groq agentic tool-calling. Raises on failure."""
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         api_key=clean_env("GROQ_API_KEY"),
         temperature=0,
     )
@@ -73,8 +83,39 @@ def run_rag_agent(message: str, conversation_history: list) -> dict:
 
     agent = create_tool_calling_agent(llm, tools, prompt)
     executor = AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=3)
+    result = executor.invoke({"input": message, "chat_history": lc_history})
+    return result["output"]
 
-    # Convert history format
+
+def _run_fallback_rag(message: str, conversation_history: list) -> str:
+    """Fallback path (Gemini -> OpenAI): retrieve chunks, then answer in one shot.
+
+    Used when Groq is unavailable. Does manual RAG instead of tool-calling so it
+    works through the OpenAI-compatible providers. Raises LLMUnavailable if every
+    fallback provider fails too.
+    """
+    context = _retrieve(message)
+    recent = conversation_history[-6:]
+    history_txt = "\n".join(
+        f"{m.get('role', 'user')}: {m.get('content', '')}" for m in recent
+    ) or "(none)"
+
+    user_prompt = (
+        f"Conversation so far:\n{history_txt}\n\n"
+        f"Retrieved document chunks:\n{context}\n\n"
+        f"User question: {message}\n\n"
+        "Answer the question using ONLY the retrieved chunks. Cite every factual "
+        "claim as [filename, p.N] using the SOURCE labels above. If the chunks are "
+        "'NO_RESULTS' and the user is greeting or asking who you are, introduce "
+        "yourself warmly. If they ask something factual and nothing relevant was "
+        "retrieved, say you couldn't find it in the uploaded documents."
+    )
+    # Skip Groq here — it already failed on the primary path.
+    return complete(SYSTEM_PROMPT, user_prompt, temperature=0, max_tokens=900, skip=("groq",))
+
+
+def run_rag_agent(message: str, conversation_history: list) -> dict:
+    # Convert history format for the LangChain agent
     from langchain_core.messages import HumanMessage, AIMessage
     lc_history = []
     for msg in conversation_history:
@@ -83,18 +124,36 @@ def run_rag_agent(message: str, conversation_history: list) -> dict:
         elif msg.get("role") == "assistant":
             lc_history.append(AIMessage(content=msg["content"]))
 
-    try:
-        result = executor.invoke({"input": message, "chat_history": lc_history})
-        answer = result["output"]
-    except Exception as e:
-        err = str(e)
-        if "429" in err or "rate_limit" in err.lower() or "Rate limit" in err:
+    answer = None
+    errors = []  # (provider, message)
+
+    # ── Primary: Groq agentic tool-calling ──────────────────────────────────
+    if "groq" in configured_providers():
+        try:
+            answer = _run_groq_agent(message, lc_history)
+        except Exception as e:
+            errors.append(("groq", str(e)))
+            print(f"[RAG] Groq agent failed, trying fallback: {e}")
+
+    # ── Fallback: Gemini -> OpenAI manual RAG ───────────────────────────────
+    if answer is None:
+        try:
+            answer = _run_fallback_rag(message, conversation_history)
+        except LLMUnavailable as e:
+            errors.extend(e.errors)
+        except Exception as e:
+            errors.append(("fallback", str(e)))
+            print(f"[RAG] Fallback failed: {e}")
+
+    # ── All providers exhausted ─────────────────────────────────────────────
+    if answer is None:
+        if errors and all(is_rate_limit_error(m) for _, m in errors):
             answer = (
-                "DocVault AI is temporarily unavailable because the AI provider's daily token limit has been reached. "
-                "This resets at midnight UTC. Please try again later, or ask a simpler question in the meantime."
+                "DocVault AI is temporarily unavailable because all AI providers have hit "
+                "their rate/token limits. Groq resets at midnight UTC. Please try again later."
             )
         else:
-            print(f"[RAG AGENT ERROR] {e}")
+            print(f"[RAG AGENT ERROR] {errors}")
             answer = (
                 "Sorry, I encountered an error while processing your request. "
                 "Please try again in a moment."

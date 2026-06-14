@@ -1,14 +1,10 @@
 """
-LLM document classifier using Groq (free tier).
+LLM document classifier with multi-provider fallback (Groq -> Gemini -> OpenAI).
 Input: extracted text from document
 Output: structured JSON classification
 """
-import os
 import json
-from groq import Groq
-from utils.env import clean_env
-
-client = Groq(api_key=clean_env("GROQ_API_KEY"))
+from services.llm import complete
 
 CLASSIFICATION_PROMPT = """You are a document classifier. Analyze the provided document text and return ONLY a valid JSON object with NO preamble, NO markdown, NO backticks.
 
@@ -39,16 +35,12 @@ def classify_document(text: str, doc_id: str) -> dict:
     truncated = text[:3000]
 
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": CLASSIFICATION_PROMPT},
-                {"role": "user", "content": f"Document text:\n\n{truncated}"}
-            ],
+        raw = complete(
+            CLASSIFICATION_PROMPT,
+            f"Document text:\n\n{truncated}",
             temperature=0.1,
             max_tokens=600,
-        )
-        raw = response.choices[0].message.content.strip()
+        ).strip()
         # Strip any accidental markdown fences
         raw = raw.replace("```json", "").replace("```", "").strip()
         # Find the JSON object boundaries in case of any preamble

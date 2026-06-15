@@ -31,16 +31,23 @@ DOCUMENT QUESTIONS (always use the tool):
 5. Be concise — lead with the answer, then cite the source."""
 
 
-def _retrieve(query: str) -> str:
-    """Embed the query and return the most relevant document chunks as text."""
+def _retrieve(query: str, doc_id: str = None) -> str:
+    """Embed the query and return the most relevant document chunks as text.
+
+    When doc_id is given, retrieval is scoped to that single document (the chat's
+    'focus on this document' mode).
+    """
     collection = get_collection()
     model = get_model()
     embedding = model.encode(query).tolist()
-    results = collection.query(
-        query_embeddings=[embedding],
-        n_results=5,
-        include=["documents", "metadatas", "distances"],
-    )
+    query_kwargs = {
+        "query_embeddings": [embedding],
+        "n_results": 5,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if doc_id:
+        query_kwargs["where"] = {"doc_id": {"$eq": doc_id}}
+    results = collection.query(**query_kwargs)
     if not results["documents"] or not results["documents"][0]:
         return "NO_RESULTS"
 
@@ -114,36 +121,69 @@ def _run_fallback_rag(message: str, conversation_history: list) -> str:
     return complete(SYSTEM_PROMPT, user_prompt, temperature=0, max_tokens=900, skip=("groq",))
 
 
-def run_rag_agent(message: str, conversation_history: list) -> dict:
-    # Convert history format for the LangChain agent
-    from langchain_core.messages import HumanMessage, AIMessage
-    lc_history = []
-    for msg in conversation_history:
-        if msg.get("role") == "user":
-            lc_history.append(HumanMessage(content=msg["content"]))
-        elif msg.get("role") == "assistant":
-            lc_history.append(AIMessage(content=msg["content"]))
+def _run_manual_rag(message: str, conversation_history: list, doc_id: str = None) -> str:
+    """Primary RAG path for all complex Q&A: retrieve, then answer in one shot
+    through the full provider chain via complete() (OpenAI -> Groq -> Gemini).
 
+    OpenAI is tried first everywhere for complex work. When doc_id is set,
+    retrieval is scoped to that single focused document.
+    """
+    context = _retrieve(message, doc_id=doc_id)
+    recent = conversation_history[-6:]
+    history_txt = "\n".join(
+        f"{m.get('role', 'user')}: {m.get('content', '')}" for m in recent
+    ) or "(none)"
+    scope = "the ONE document the user is focused on" if doc_id else "the user's document library"
+    user_prompt = (
+        f"Conversation so far:\n{history_txt}\n\n"
+        f"Retrieved document chunks (from {scope}):\n{context}\n\n"
+        f"User question: {message}\n\n"
+        "Answer the question using ONLY the retrieved chunks. Cite every factual "
+        "claim as [filename, p.N] using the SOURCE labels above. If the chunks are "
+        "'NO_RESULTS' and the user is greeting or asking who you are, introduce "
+        "yourself warmly. If they ask something factual and nothing relevant was "
+        "retrieved, say you couldn't find it in the documents."
+    )
+    return complete(SYSTEM_PROMPT, user_prompt, temperature=0, max_tokens=900)
+
+
+def _clean_answer(text: str) -> str:
+    """Remove markdown so the plain-text chat UI never shows ** or ## artifacts."""
+    if not text:
+        return text
+    text = re.sub(r'`+', '', text)                              # backticks
+    text = text.replace('*', '')                                # bold/italic/bullet asterisks
+    text = re.sub(r'^\s{0,3}#{1,6}\s*', '', text, flags=re.MULTILINE)  # headers
+    return text.strip()
+
+
+def run_rag_agent(message: str, conversation_history: list, doc_id: str = None) -> dict:
     answer = None
     errors = []  # (provider, message)
 
-    # ── Primary: Groq agentic tool-calling ──────────────────────────────────
-    if "groq" in configured_providers():
+    # ── Primary: OpenAI-first manual RAG (full chain), optionally doc-focused ─
+    try:
+        answer = _run_manual_rag(message, conversation_history, doc_id=doc_id)
+    except LLMUnavailable as e:
+        errors.extend(e.errors)
+    except Exception as e:
+        errors.append(("manual_rag", str(e)))
+        print(f"[RAG] Manual RAG failed: {e}")
+
+    # ── Secondary: Groq agentic tool-calling (only for library-wide chat) ────
+    if answer is None and not doc_id and "groq" in configured_providers():
         try:
+            from langchain_core.messages import HumanMessage, AIMessage
+            lc_history = []
+            for msg in conversation_history:
+                if msg.get("role") == "user":
+                    lc_history.append(HumanMessage(content=msg["content"]))
+                elif msg.get("role") == "assistant":
+                    lc_history.append(AIMessage(content=msg["content"]))
             answer = _run_groq_agent(message, lc_history)
         except Exception as e:
-            errors.append(("groq", str(e)))
-            print(f"[RAG] Groq agent failed, trying fallback: {e}")
-
-    # ── Fallback: Gemini -> OpenAI manual RAG ───────────────────────────────
-    if answer is None:
-        try:
-            answer = _run_fallback_rag(message, conversation_history)
-        except LLMUnavailable as e:
-            errors.extend(e.errors)
-        except Exception as e:
-            errors.append(("fallback", str(e)))
-            print(f"[RAG] Fallback failed: {e}")
+            errors.append(("groq_agent", str(e)))
+            print(f"[RAG] Groq agent fallback failed: {e}")
 
     # ── All providers exhausted ─────────────────────────────────────────────
     if answer is None:
@@ -166,6 +206,11 @@ def run_rag_agent(message: str, conversation_history: list) -> dict:
                 {"role": "assistant", "content": answer},
             ],
         }
+
+    # Strip markdown so the chat UI (plain text) never shows ** or ## artifacts.
+    # Safe for citations: removes *, `, and leading # only — never underscores,
+    # so filenames like [sample_invoice.pdf, p.1] stay intact.
+    answer = _clean_answer(answer)
 
     # Parse citations from the answer text. Accept any of:
     #   [file, p.N]  [file, p N]  [file, pg.N]  [file, page N]  (case-insensitive)

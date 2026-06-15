@@ -162,3 +162,20 @@
   animation: spin-slow 12s linear infinite;
 }
 
+
+/* ── Google Translate widget: hide its banner/branding, style the dropdown ── */
+body { top: 0 !important; }
+.goog-te-banner-frame, .skiptranslate iframe { display: none !important; }
+#google_translate_element .goog-te-gadget { font-size: 0; color: transparent; }
+#google_translate_element .goog-te-gadget .goog-te-combo {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+}
+#google_translate_element .goog-te-gadget span { display: none; }

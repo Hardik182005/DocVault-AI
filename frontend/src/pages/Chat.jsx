@@ -33,14 +33,19 @@ export default function Chat() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [docs, setDocs] = useState([]);
   const [showDocPicker, setShowDocPicker] = useState(false);
+  const [focusedDoc, setFocusedDoc] = useState(null); // when set, chat is scoped to this doc
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
   const inputRef = useRef(null);
   const docPickerRef = useRef(null);
 
+  // Scroll ONLY the message list, not the whole page. scrollIntoView() bubbles up
+  // and scrolls the window; setting the container's scrollTop keeps the page put.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const c = messagesContainerRef.current;
+    if (c) c.scrollTop = c.scrollHeight;
   }, [messages]);
 
   // Load document list for left panel
@@ -82,7 +87,7 @@ export default function Chat() {
     setLoading(true);
     try {
       const history = messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
-      const data = await api.chat(text.trim(), history);
+      const data = await api.chat(text.trim(), history, focusedDoc?.doc_id || null);
       setMessages(prev => [...prev, {
         role: "assistant",
         text: data.answer,
@@ -172,7 +177,7 @@ export default function Chat() {
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary text-3xl">chat</span>
           <div>
-            <h2 className="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">Ask DocVault AI</h2>
+            <h2 className="font-headline-lg text-title-lg font-bold text-on-surface tracking-tight">Ask DocVault AI</h2>
             <p className="font-body-md text-body-md text-on-surface-variant">Ask anything about your uploaded documents. Get grounded answers with citations.</p>
           </div>
         </div>
@@ -184,20 +189,39 @@ export default function Chat() {
           <div className="glass-card rounded-xl card-inner-stroke flex flex-col" style={{ maxHeight: "70vh" }}>
             <div className="px-4 py-3 border-b border-outline-variant/30 flex items-center gap-2">
               <span className="material-symbols-outlined text-secondary text-sm">folder_open</span>
-              <span className="font-label-caps text-label-caps text-on-surface-variant">INDEXED DOCS</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant">DOCUMENTS</span>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
+              {/* All documents — clears focus, searches the whole library */}
+              <button
+                type="button"
+                onClick={() => setFocusedDoc(null)}
+                className={`w-full text-left flex items-start gap-2 px-2 py-2 rounded-lg transition-colors cursor-pointer mb-1 ${
+                  !focusedDoc ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-surface-container-low"
+                }`}
+                title="Search across the whole library"
+              >
+                <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">library_books</span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-on-surface">All documents</p>
+                  <p className="text-[10px] text-on-surface-variant">Search the whole library</p>
+                </div>
+              </button>
               {docs.length === 0 ? (
                 <p className="text-[12px] text-on-surface-variant text-center py-4">No documents yet.<br />Upload some files first.</p>
-              ) : docs.map(doc => (
+              ) : docs.map(doc => {
+                const isFocused = focusedDoc?.doc_id === doc.doc_id;
+                return (
                 <button
                   key={doc.doc_id}
                   type="button"
-                  onClick={() => insertDocName(doc.filename)}
-                  title={`Click to ask about "${doc.filename}"`}
-                  className="w-full text-left flex items-start gap-2 px-2 py-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer"
+                  onClick={() => setFocusedDoc(isFocused ? null : doc)}
+                  title={isFocused ? "Click to unfocus" : `Focus the chat on "${doc.filename}"`}
+                  className={`w-full text-left flex items-start gap-2 px-2 py-2 rounded-lg transition-colors cursor-pointer ${
+                    isFocused ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-surface-container-low"
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">description</span>
+                  <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">{isFocused ? "center_focus_strong" : "description"}</span>
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-on-surface truncate" title={doc.filename}>{doc.filename}</p>
                     {doc.classification?.document_type && (
@@ -210,7 +234,7 @@ export default function Chat() {
                     )}
                   </div>
                 </button>
-              ))}
+              );})}
             </div>
           </div>
         </aside>
@@ -220,9 +244,19 @@ export default function Chat() {
           {/* Messages */}
           <div className="glass-card rounded-xl card-inner-stroke flex flex-col flex-1" style={{ minHeight: 0, maxHeight: "65vh" }}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-                <span className="font-label-caps text-label-caps text-on-surface-variant">DocVault AI — DOCUMENT INTELLIGENCE</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse shrink-0"></span>
+                {focusedDoc ? (
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary min-w-0">
+                    <span className="material-symbols-outlined text-[14px] shrink-0">center_focus_strong</span>
+                    <span className="truncate" title={focusedDoc.filename}>Focused: {focusedDoc.filename}</span>
+                    <button onClick={() => setFocusedDoc(null)} className="shrink-0 hover:opacity-70" title="Clear focus — search whole library">
+                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                  </span>
+                ) : (
+                  <span className="font-label-caps text-label-caps text-on-surface-variant">DocVault AI — SEARCHING ALL DOCUMENTS</span>
+                )}
               </div>
               <button
                 onClick={() => { setVoiceEnabled(v => !v); if (isSpeaking && audioRef.current) { audioRef.current.pause(); setIsSpeaking(false); } }}
@@ -234,7 +268,7 @@ export default function Chat() {
             </div>
 
             {/* Message List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.role === "assistant" && (

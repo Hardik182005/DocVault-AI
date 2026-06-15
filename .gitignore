@@ -44,3 +44,15 @@ storage/
 # IDE
 .vscode/
 .idea/
+
+# Local-only artifacts (not part of the project)
+_frames/
+*.mp4
+image.png
+image*.png
+"image copy*.png"
+BFAI_AI_Engineer_Assessment*.pdf
+verify_100.py
+stress_test.py
+backend/image*.png
+backend/VID-*.mp4

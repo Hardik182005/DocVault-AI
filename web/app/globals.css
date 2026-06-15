@@ -1,0 +1,181 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply bg-background text-on-background min-h-screen overflow-x-hidden font-body-md text-body-md;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #EDE9FF;
+  box-shadow: 0 30px 60px -12px rgba(108, 63, 245, 0.08);
+}
+
+.cinematic-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.05);
+}
+
+.cinematic-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(203, 190, 255, 0.3);
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+  transform: skewX(-20deg);
+  transition: all 0.5s ease;
+}
+
+.btn-shimmer:hover::after {
+  left: 150%;
+}
+
+.hero-bg-fx {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(108, 63, 245, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(108, 63, 245, 0.02) 0%, transparent 40%);
+  z-index: 0;
+}
+
+.card-inner-stroke {
+  box-shadow: inset 0 0 0 1px rgba(203, 190, 255, 0.3);
+}
+
+.positive {
+  color: #005a3e;
+}
+
+.negative {
+  color: #ba1a1a;
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: normal;
+  border-right: .15em solid #6c3ff5;
+  animation:
+    typing 4s steps(80, end),
+    blink-caret .75s step-end infinite;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: #6c3ff5; }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+/* custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f0edec;
+}
+::-webkit-scrollbar-thumb {
+  background: #cac3d9;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #797487;
+}
+
+@keyframes slide-up {
+  0% {
+    transform: translateY(60px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  display: inline-block;
+  animation: slide-up 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 12s linear infinite;
+}
+
+
+/* ── Google Translate widget: hide its banner/branding, style the dropdown ── */
+body { top: 0 !important; }
+.goog-te-banner-frame, .skiptranslate iframe { display: none !important; }
+#google_translate_element .goog-te-gadget { font-size: 0; color: transparent; }
+#google_translate_element .goog-te-gadget .goog-te-combo {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+}
+#google_translate_element .goog-te-gadget span { display: none; }

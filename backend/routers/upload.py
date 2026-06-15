@@ -60,9 +60,17 @@ async def process_document(doc_id: str, file_path: str, filename: str):
         full_text = " ".join(p["text"] for p in pages)
         classification = classify_document(full_text, doc_id)
 
+        # Detect PII and raise sensitivity if any is present.
+        from services.pii import detect_pii, elevate_sensitivity
+        pii = detect_pii(full_text)
+        classification["pii"] = pii
+        if pii["detected"]:
+            classification["sensitivity_level"] = elevate_sensitivity(
+                classification.get("sensitivity_level"), pii)
+
         processing_status[doc_id] = {"status": "embedding", "progress": 75}
         embed_document(doc_id, filename, pages, classification)
-        _save_doc_metadata(doc_id, filename, len(pages), classification)
+        _save_doc_metadata(doc_id, filename, len(pages), classification, pages)
 
         processing_status[doc_id] = {"status": "indexed", "progress": 100}
     except Exception as e:

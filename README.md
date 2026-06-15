@@ -2,7 +2,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 [![Groq](https://img.shields.io/badge/LLM-Groq%20Llama%203.3-orange)](https://groq.com/)
 [![ElevenLabs](https://img.shields.io/badge/Voice-ElevenLabs-purple)](https://elevenlabs.io/)
@@ -25,11 +26,15 @@ A Document Intelligence + Agentic RAG platform. Upload messy real-world document
 ## Features
 
 - **Smart Parser** — PDF (native + scanned), PNG/JPG (OCR), plain text. Tables extracted as structured data via pdfplumber. pytesseract fallback for scanned pages.
-- **LLM Classifier** — Every document classified across type, topic, sensitivity level, and content characteristics. Structured JSON output via Groq Llama 3.3.
+- **LLM Classifier** — Every document classified across type, topic, sensitivity level, and content characteristics. Structured JSON output via a multi-provider chain (OpenAI → Groq → Gemini) so classification never stalls on a single provider's rate limit.
 - **Agentic RAG** — LangChain AgentExecutor with a ChromaDB retrieval tool. Grounded answers only — never hallucinates. Returns "I could not find relevant information" when nothing matches.
+- **Resilient Parsing** — Per-page best-effort extraction: a single bad page, failed OCR, or unavailable renderer degrades gracefully instead of failing the whole upload. Every page is always guaranteed a rendered image so citations resolve.
 - **Cited Answers** — Every answer includes `[filename, p.N]` citations. The cited page renders as a clickable thumbnail. Full-page modal on click.
 - **Bulk Upload** — Drag-and-drop multi-file upload. Per-file status: Uploading → Parsing → Classifying → Indexing → ✓ Indexed. Real-time progress bar.
 - **Voice Input** — Web Speech API live transcript as you speak. ElevenLabs TTS for voice replies. OpenAI Whisper server-side STT fallback. Voice NEVER auto-starts — only on explicit user action.
+- **AI Audio Briefing** — One click generates an LLM-synthesized spoken executive briefing across the whole vault (document mix, key finding, a security note naming confidential docs) and narrates it via ElevenLabs.
+- **Voice Analyst on Upload** — When a document finishes parsing, an autonomous analyst agent summarizes it and ElevenLabs announces the completed analysis.
+- **Per-document Narration** — Every document card has a speak button that reads out its AI-extracted analysis; the library can announce which documents it holds.
 - **Floating Voice Orb** — Global chat + voice assistant on every page.
 - **Security** — File validation (extension + size + MIME), path traversal prevention, UUID-only doc IDs, slowapi rate limiting, security headers middleware.
 
@@ -37,35 +42,36 @@ A Document Intelligence + Agentic RAG platform. Upload messy real-world document
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Browser (React 19 + Vite + Tailwind)                   │
-│  Landing → Chat (citations) → Upload → Documents        │
-│  VoiceOrb (ElevenLabs TTS + Web Speech STT)             │
+│  Next.js 14 (App Router, TypeScript) + Tailwind          │
+│  Landing → Chat (citations) → Upload → Documents         │
+│  VoiceOrb (ElevenLabs TTS + Web Speech STT)              │
+│  Full-site translate · PII redaction · AI Audio Briefing │
 └───────────────────────┬─────────────────────────────────┘
-                        │ HTTPS / REST
+                        │ HTTPS / REST (NEXT_PUBLIC_API_URL)
 ┌───────────────────────▼─────────────────────────────────┐
 │  FastAPI Backend (Cloud Run)                             │
-│  POST /api/upload    →  parser + classifier + embedder   │
-│  POST /api/chat      →  agentic RAG agent               │
-│  GET  /api/documents →  metadata store                   │
-│  POST /api/voice/speak     →  ElevenLabs TTS            │
-│  POST /api/voice/transcribe →  OpenAI Whisper           │
+│  POST /api/upload     →  parser + classifier + PII + embed│
+│  POST /api/chat       →  agentic RAG (doc-focus capable)  │
+│  GET  /api/documents  →  metadata + per-page text         │
+│  GET  /api/briefing   →  cross-document audio briefing    │
+│  POST /api/voice/speak →  ElevenLabs TTS (female voice)   │
 └───────┬──────────────┬──────────────┬───────────────────┘
         │              │              │
-   pdfplumber     ChromaDB       Groq LLM
-   pytesseract    (vectors)    llama-3.3-70b
-   pdf2image      all-MiniLM   (classify + RAG)
+   pdfplumber     ChromaDB       OpenAI → Groq → Gemini
+   pytesseract    (vectors)     (classify + RAG, auto-fallback)
+   pdf2image      all-MiniLM
 ```
 
 ## Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite, Tailwind CSS (Material Design 3 tokens) |
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS (Material Design 3 tokens) |
 | Backend | FastAPI, Python 3.11, uvicorn |
 | OCR/Parsing | pdfplumber, pdf2image, pytesseract |
 | Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
 | Vector DB | ChromaDB (persistent) |
-| LLM | Groq — llama-3.3-70b-versatile |
+| LLM | OpenAI gpt-4o-mini → Groq llama-3.3-70b → Gemini 2.5 Flash (auto-fallback) |
 | Voice TTS | ElevenLabs v2 |
 | Voice STT | Web Speech API (browser) + OpenAI Whisper (fallback) |
 | Deployment | Google Cloud Run (backend), Firebase Hosting (frontend) |
@@ -73,9 +79,9 @@ A Document Intelligence + Agentic RAG platform. Upload messy real-world document
 ## Security Decisions
 
 ### What we implemented
-- **Upload layer**: Extension whitelist (.pdf, .png, .jpg, .txt), file size cap (20MB), MIME type check via python-magic, filename sanitization (no path traversal)
+- **Upload layer**: Extension whitelist (.pdf, .png, .jpg, .txt), file size cap (50MB), MIME type check via python-magic, filename sanitization (no path traversal)
 - **Storage layer**: Files stored with UUID names, not original filenames, preventing path-based attacks
-- **Processing layer**: Document IDs validated as UUIDs before any filesystem access; regex guard on all doc_id parameters
+- **Processing layer**: Document IDs validated as UUIDs before any filesystem access; regex guard on all doc_id parameters. **PII detection** scans extracted text for emails, phone numbers, cards, SSN, Aadhaar, PAN and IPs — flagged documents are auto-elevated to at least *confidential* sensitivity. Detection stores only the PII *categories* and counts, never the raw values.
 - **API / retrieval layer**: Rate limiting (10/min upload, 30/min chat) via slowapi; chat query sanitized to strip injection patterns; security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection) on all responses
 - **Secrets**: All API keys in environment variables / GCP Secret Manager — never in code
 
@@ -121,11 +127,15 @@ cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8080
 
-# Frontend (separate terminal)
-cd frontend
+# Frontend — Next.js (separate terminal)
+cd web
+cp .env.example .env.local        # set NEXT_PUBLIC_API_URL to your backend
 npm install
-npm run dev
+npm run dev                        # http://localhost:3000
 ```
+
+> The frontend is **Next.js 14 (App Router) + TypeScript** in `web/`. It is built
+> as a static export (`npm run build` → `web/out`) and deployed to Firebase Hosting.
 
 ### Generate sample documents
 ```bash
@@ -148,22 +158,28 @@ This creates 5 sample documents in `sample_documents/` which are auto-ingested o
 | `/api/chat` | POST | Agentic RAG chat |
 | `/api/voice/speak` | POST | ElevenLabs TTS |
 | `/api/voice/transcribe` | POST | Whisper STT |
+| `/api/briefing` | GET | AI Audio Briefing — LLM executive summary of the whole vault |
+| `/api/analyze/{doc_id}` | GET | Autonomous per-document spoken analysis |
 
 ## Repository Structure
 
 ```
 DocVault-AI/
-├── frontend/          # React 19 + Vite + Tailwind (DocVault design system)
-│   └── src/
-│       ├── pages/     # Chat, Upload, Documents, Landing, Settings
-│       └── components/# SideNavBar, TopNavBar, VoiceOrb, CitationCard
+├── web/               # Next.js 14 (App Router) + TypeScript frontend
+│   ├── app/
+│   │   ├── page.tsx           # Landing
+│   │   ├── (app)/layout.tsx   # Dashboard shell (sidebar + nav + VoiceOrb)
+│   │   └── (app)/{chat,upload,documents,settings}/page.tsx
+│   ├── components/    # SideNavBar, TopNavBar, VoiceOrb, CitationCard, TranslateWidget
+│   └── lib/           # api, useSpeak, redact, pageContext
 ├── backend/           # FastAPI
-│   ├── routers/       # upload, chat, documents, voice
-│   ├── services/      # parser, classifier, embedder, rag_agent, security
+│   ├── routers/       # upload, chat, documents, voice, insights
+│   ├── services/      # parser, classifier, embedder, rag_agent, security, pii, llm, elevenlabs_svc
+│   ├── sample_documents/  # bundled into the image → auto-ingested on first run
 │   └── Dockerfile
-├── sample_documents/  # 5 pre-loaded sample docs
-├── generate_samples.py
-└── docker-compose.yml
+├── sample_documents/  # source sample docs (5+)
+├── cloudbuild.yaml    # Cloud Run deploy
+└── firebase.json      # Firebase Hosting (web/out)
 ```
 
 ## License

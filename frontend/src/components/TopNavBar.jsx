@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import TranslateWidget from "./TranslateWidget";
 
 const BREADCRUMBS = {
   "/chat":      ["DocVault AI", "Ask DocVault AI"],
@@ -63,6 +64,8 @@ export default function TopNavBar({ onToggleMobileMenu }) {
 
       {/* Right actions */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Full-site language translator */}
+        <div className="hidden sm:block"><TranslateWidget /></div>
         <button className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
           <span className="material-symbols-outlined text-[20px]">notifications</span>
         </button>

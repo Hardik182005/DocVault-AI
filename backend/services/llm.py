@@ -1,9 +1,9 @@
 """
 Unified LLM access with multi-provider fallback.
 
-Primary : Groq   (llama-3.3-70b-versatile)  — fast + free tier
-Fallback: Gemini (gemini-1.5-flash)         — used if Groq fails / hits limit
-Fallback: OpenAI (gpt-4o-mini, "ChatGPT")   — used if Gemini also fails
+Primary : OpenAI (gpt-4o-mini, "ChatGPT")   — most reliable, tried first
+Fallback: Groq   (llama-3.3-70b-versatile)  — fast + free tier
+Fallback: Gemini (gemini-2.5-flash)         — used if the others fail / hit limit
 
 A provider is only attempted when its API key is configured. Gemini and OpenAI
 are both called through the OpenAI SDK (Google exposes an OpenAI-compatible
@@ -18,7 +18,7 @@ OPENAI_MODEL = "gpt-4o-mini"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 # Ordered fallback chain and the env var holding each provider's key.
-ORDER = ["groq", "gemini", "openai"]
+ORDER = ["openai", "groq", "gemini"]
 KEYS = {
     "groq":   "GROQ_API_KEY",
     "gemini": "GEMINI_API_KEY",

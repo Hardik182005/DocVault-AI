@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Ensure the bundled sample documents made it into the image (fail loudly if not).
+RUN echo "=== sample_documents in image ===" && ls -1 /app/sample_documents
+
 RUN mkdir -p storage/uploads storage/pages storage/metadata
 
 EXPOSE 8080

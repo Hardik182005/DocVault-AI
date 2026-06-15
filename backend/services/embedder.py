@@ -109,24 +109,50 @@ def auto_ingest_samples():
             pages = parse_document(file_path, doc_id)
             full_text = " ".join(p["text"] for p in pages)
             classification = classify_document(full_text, doc_id)
+            from services.pii import detect_pii, elevate_sensitivity
+            pii = detect_pii(full_text)
+            classification["pii"] = pii
+            if pii["detected"]:
+                classification["sensitivity_level"] = elevate_sensitivity(
+                    classification.get("sensitivity_level"), pii)
             embed_document(doc_id, filename, pages, classification)
-            _save_doc_metadata(doc_id, filename, len(pages), classification)
+            _save_doc_metadata(doc_id, filename, len(pages), classification, pages)
             print(f"[BFAI] Auto-ingested sample: {filename}")
         except Exception as e:
             print(f"[BFAI] Failed to ingest {file_path}: {e}")
 
 
-def _save_doc_metadata(doc_id: str, filename: str, page_count: int, classification: dict):
+def _page_digest(pages: list) -> list:
+    """Compact, bounded per-page record for the 'View extracted data' viewer.
+
+    Stores the extracted text (capped to keep metadata small) and table info so
+    the UI can show 'EXTRACTED CONTENT — N PAGES' without re-parsing the file.
+    """
+    digest = []
+    for p in pages or []:
+        tables = p.get("tables") or []
+        digest.append({
+            "page_number": p.get("page_number"),
+            "text": (p.get("text") or "")[:6000],
+            "table_count": len(tables),
+            "tables": [t[:20] for t in tables][:5],  # cap rows/tables for size
+        })
+    return digest
+
+
+def _save_doc_metadata(doc_id: str, filename: str, page_count: int, classification: dict, pages: list = None):
     meta_dir = os.path.join(STORAGE_DIR, "metadata")
     os.makedirs(meta_dir, exist_ok=True)
-    with open(os.path.join(meta_dir, f"{doc_id}.json"), "w") as f:
+    with open(os.path.join(meta_dir, f"{doc_id}.json"), "w", encoding="utf-8") as f:
         json.dump(
             {
                 "doc_id": doc_id,
                 "filename": filename,
                 "page_count": page_count,
                 "classification": classification,
+                "pages": _page_digest(pages),
                 "indexed_at": str(datetime.datetime.utcnow()),
             },
             f,
+            ensure_ascii=False,
         )

@@ -83,7 +83,7 @@ export default function Settings() {
             {nameInitial}
           </div>
           <div>
-            <h2 className="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">Settings</h2>
+            <h2 className="font-headline-lg text-title-lg font-bold text-on-surface tracking-tight">Settings</h2>
             <p className="font-body-md text-body-md text-on-surface-variant">
               {prefs.name || "Your Name"} · {prefs.email || "your@email.com"}
             </p>

@@ -1,8 +1,9 @@
 {
   "hosting": {
     "site": "docvault-ai-app",
-    "public": "frontend/dist",
+    "public": "web/out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "trailingSlash": true,
     "rewrites": [{"source": "**", "destination": "/index.html"}]
   }
 }

@@ -41,10 +41,11 @@ export const api = {
   // Chat with the RAG agent
   // Body: { message: string, conversation_history: [{role, content}] }
   // Returns: { answer: string, citations: [{doc_name, doc_id, page_number, chunk_text}], conversation_history: [...] }
-  chat: (message, conversationHistory) =>
+  // docId (optional) focuses retrieval on a single document.
+  chat: (message, conversationHistory, docId = null) =>
     request("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ message, conversation_history: conversationHistory }),
+      body: JSON.stringify({ message, conversation_history: conversationHistory, doc_id: docId }),
     }),
 
   // Text-to-speech — returns object URL for audio (ElevenLabs via backend)
@@ -60,11 +61,20 @@ export const api = {
       }),
 
   // Voice transcription fallback — POST multipart blob, returns { text }
+  // Field name MUST be "file" to match the backend's UploadFile = File(...) param.
   transcribe: (blob) => {
     const formData = new FormData();
-    formData.append("audio", blob, "recording.webm");
+    formData.append("file", blob, "recording.webm");
     return fetch(`${API_BASE}/api/voice/transcribe`, { method: "POST", body: formData }).then(r => r.json());
   },
+
+  // AI Audio Briefing — LLM-synthesized executive briefing of the whole vault
+  // Returns { briefing: string, stats: {...} }
+  getBriefing: () => request("/api/briefing"),
+
+  // On-demand single-document analysis from an autonomous agent
+  // Returns { analysis: string, doc_id }
+  analyzeDocument: (docId) => request(`/api/analyze/${docId}`),
 
   // Backend health alias for Settings page
   health: () => request("/api/health").catch(() => null),

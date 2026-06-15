@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from slowapi import Limiter
@@ -12,6 +13,7 @@ limiter = Limiter(key_func=get_remote_address)
 class ChatRequest(BaseModel):
     message: str
     conversation_history: list = []
+    doc_id: str | None = None  # when set, focus retrieval on this one document
 
 
 @router.post("/chat")
@@ -24,8 +26,12 @@ async def chat(request: Request, body: ChatRequest):
             "citations": [],
             "conversation_history": body.conversation_history,
         }
+    # Validate doc_id format if focus mode is requested.
+    doc_id = body.doc_id
+    if doc_id and not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', doc_id):
+        doc_id = None
     try:
-        result = run_rag_agent(clean_message, body.conversation_history)
+        result = run_rag_agent(clean_message, body.conversation_history, doc_id=doc_id)
         return result
     except Exception as e:
         err = str(e)

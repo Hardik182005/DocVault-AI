@@ -41,13 +41,14 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-from routers import upload, chat, documents
+from routers import upload, chat, documents, insights
 from routers.voice import router as voice_router
 
 app.include_router(upload.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
+app.include_router(insights.router, prefix="/api")
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
@@ -59,12 +60,18 @@ async def startup():
     os.makedirs(os.path.join(storage_dir, "metadata"), exist_ok=True)
     os.makedirs(os.path.join(storage_dir, "chroma_db"), exist_ok=True)
 
-    # Auto-ingest sample docs if ChromaDB is empty
-    try:
-        from services.embedder import auto_ingest_samples
-        auto_ingest_samples()
-    except Exception as e:
-        print(f"[BFAI] auto_ingest_samples skipped: {e}")
+    # Auto-ingest sample docs if ChromaDB is empty. Run in a background thread so
+    # parsing/OCR of the bundled samples never blocks container readiness (Cloud
+    # Run startup probe) — documents appear within a minute of first boot.
+    def _ingest():
+        try:
+            from services.embedder import auto_ingest_samples
+            auto_ingest_samples()
+        except Exception as e:
+            print(f"[BFAI] auto_ingest_samples skipped: {e}")
+
+    import threading
+    threading.Thread(target=_ingest, daemon=True).start()
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

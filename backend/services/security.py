@@ -12,7 +12,7 @@ ALLOWED_MIME_TYPES = {
     "image/jpeg",
 }
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".png", ".jpg", ".jpeg"}
-MAX_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_MB", 20)) * 1024 * 1024
+MAX_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_MB", 50)) * 1024 * 1024
 
 # Try to import python-magic; fall back gracefully if libmagic not available
 try:
@@ -31,7 +31,7 @@ def validate_upload_file(filename: str, file_bytes: bytes) -> tuple:
 
     # Check size
     if len(file_bytes) > MAX_SIZE_BYTES:
-        return False, f"File too large. Max size: {os.getenv('MAX_UPLOAD_SIZE_MB', 20)}MB"
+        return False, f"File too large. Max size: {os.getenv('MAX_UPLOAD_SIZE_MB', 50)}MB"
 
     # Check actual MIME type (not just extension) — only if libmagic is available
     if _MAGIC_AVAILABLE:

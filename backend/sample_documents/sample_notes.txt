@@ -1,0 +1,58 @@
+BFAI Project — Internal Meeting Notes
+Date: 2024-11-12
+Attendees: Hardik H. (Product), Priya N. (Engineering Lead), Arjun S. (ML), Divya R. (Design)
+Location: Conference Room 3B / Google Meet hybrid
+
+AGENDA ITEMS & DECISIONS
+=========================
+
+1. MVP Feature Scope
+   - Agreed to ship 5 core features for v1.0:
+     (a) PDF upload with OCR fallback
+     (b) LLM classification (document type + sensitivity)
+     (c) Agentic RAG with citations
+     (d) Page-level thumbnail viewer in chat
+     (e) Voice input (Whisper STT) + voice output (ElevenLabs TTS)
+   - Deferred to v1.1: batch upload API, webhook notifications, admin dashboard
+
+2. Model Choices
+   - Classifier: Groq llama-3.3-70b-versatile — fast, free tier, structured JSON output
+   - Embedder: all-MiniLM-L6-v2 (sentence-transformers) — lightweight, runs CPU
+   - Vector store: ChromaDB local PersistentClient (no infra to manage for MVP)
+   - RAG agent: LangChain create_tool_calling_agent over Groq LLM
+   - STT: OpenAI Whisper-1 (server-side fallback when browser mic blocked)
+   - TTS: ElevenLabs multilingual v2
+
+3. Security Concerns Raised
+   - Validate file extension AND MIME type (python-magic on server)
+   - Max upload 20 MB per file, 10 files per request
+   - Sanitise filenames to prevent path traversal
+   - Rate limit: 10 uploads/min, 30 chat requests/min per IP
+   - All docs stored in private /storage volume, not served publicly except via /api
+   - No PII logging — strip API keys from logs, mask document content
+
+4. Infrastructure Plan
+   - Backend: FastAPI in Docker → Google Cloud Run (auto-scales to 0)
+   - Frontend: React + Vite → Firebase Hosting
+   - Storage: Cloud Run volume mount for MVP; migrate to GCS for production
+   - CI/CD: Cloud Build trigger on main branch push
+
+5. Sample Documents
+   - Hardik to generate 5 synthetic PDFs using fpdf2 (no copyright issues)
+   - Must cover: invoice with table, multi-page research, medical (sensitive), financial report, plain text
+   - Auto-ingested on first boot if ChromaDB empty
+
+ACTION ITEMS
+============
+- [ ] Arjun: finalize ChromaDB schema + chunk overlap tuning (by Nov 14)
+- [ ] Priya: write Dockerfile + Cloud Run deploy script (by Nov 15)
+- [ ] Divya: design chat citation cards in Figma (by Nov 14)
+- [ ] Hardik: generate sample docs + write generate_samples.py (by Nov 13)
+- [ ] All: review PR before EOD Nov 16
+
+NEXT MEETING
+============
+Date: 2024-11-19 at 10:00 IST
+Focus: Integration testing + demo walkthrough
+
+Notes taken by: Hardik H.

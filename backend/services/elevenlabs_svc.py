@@ -6,7 +6,8 @@ except ImportError:
 from utils.env import clean_env
 
 ELEVENLABS_API_KEY = clean_env("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = clean_env("ELEVENLABS_VOICE_ID") or "pNInz6obpgDQGcFmaJgB"
+# Default to a female ("lady") voice — Rachel. Override via ELEVENLABS_VOICE_ID.
+ELEVENLABS_VOICE_ID = clean_env("ELEVENLABS_VOICE_ID") or "21m00Tcm4TlvDq8ikWAM"
 
 # 1-second silent MP3 fallback when API key is absent
 MOCK_MP3_SILENCE = (

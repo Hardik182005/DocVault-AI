@@ -21,13 +21,15 @@ export default function VoiceOrb() {
     { role: "assistant", text: "Hello! I'm DocVault AI. Ask me anything about your uploaded documents — I'll answer with exact citations showing the source page." }
   ]);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const audioRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
   useEffect(() => {
-    if (open) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const c = messagesContainerRef.current;
+    if (open && c) c.scrollTop = c.scrollHeight;
   }, [messages, open]);
 
   // Stop audio + mic when panel closes or unmounts
@@ -212,7 +214,7 @@ export default function VoiceOrb() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fcf9f8]">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fcf9f8]">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`group max-w-[80%] px-3 py-2 rounded-xl text-[13px] leading-relaxed ${

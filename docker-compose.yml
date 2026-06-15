@@ -6,17 +6,11 @@ services:
       - "8080:8080"
     env_file:
       - ./backend/.env
-    depends_on:
-      - redis
     environment:
-      - REDIS_URL=redis://redis:6379
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+      - STORAGE_DIR=/app/storage
     volumes:
-      - redis_data:/data
+      # Persist uploads, page images, ChromaDB and metadata across restarts.
+      - backend_storage:/app/storage
 
 volumes:
-  redis_data:
+  backend_storage:
